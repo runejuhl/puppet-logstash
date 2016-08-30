@@ -11,7 +11,7 @@
 #  Supply a puppet file resource to be used for the config file.
 #
 # [*order*]
-#  The order number controls in which sequence the config file fragments are concatenated.
+#  The order number controls in which sequence the config file is loaded by Logstash.
 #
 # === Examples
 #
@@ -54,11 +54,19 @@ define logstash::configfile(
     $config_content = $content
   }
 
-  file_fragment { $name:
-    tag     => "LS_CONFIG_${::fqdn}",
+  $notify_service = $logstash::restart_on_change ? {
+    true  => Class['logstash::service'],
+    false => undef,
+  }
+
+  file { "${logstash::configdir}/conf.d/${order}-${name}.conf":
+    ensure => 'file',
     content => $config_content,
     source  => $source,
-    order   => $order,
-    before  => [ File_concat['ls-config'] ],
+    owner   => $logstash::logstash_user,
+    group   => $logstash::logstash_group,
+    mode    => '0644',
+    notify  => $notify_service,
+    require => File["${logstash::configdir}/conf.d"],
   }
 }
